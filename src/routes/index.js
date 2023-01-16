@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const isPrivate = require('../middleware/checkPrivate');
 const { PrismaClient } = require('@prisma/client');
@@ -14,7 +15,7 @@ const { router: privateRouter } = require('./privateRoutes');
 router.post('/signup', doesEmailExists, async (req, res) => {
   const { first_name, last_name, email, password } = req.body;
   try {
-    const user = await prisma.Users.create({
+    await prisma.Users.create({
       data: {
         first_name,
         last_name,

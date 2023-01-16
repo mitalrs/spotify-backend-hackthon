@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
-router.get('/hello', (req, res) => {
-  res.send('World!');
+router.post('/me', (req, res) => {
+  const {currentUser} = req.body
+  res.json(currentUser);
 });
+
+
 
 module.exports = { router };
