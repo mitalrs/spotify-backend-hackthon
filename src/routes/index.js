@@ -11,10 +11,14 @@ const prisma = new PrismaClient();
 const router = express.Router();
 const secret = process.env.JWT_SECRET;
 const { router: privateRouter } = require('./privateRoutes');
+const signupValidation = require("../middleware/signupvalidation");
+const signinValidation = require("../middleware/signinvalidation");
 
-router.post('/signup', doesEmailExists, async (req, res) => {
+
+router.post('/signup',signupValidation, doesEmailExists, async (req, res) => {
   const { first_name, last_name, email, password } = req.body;
   try {
+
     await prisma.Users.create({
       data: {
         first_name,
@@ -38,7 +42,7 @@ router.post('/signup', doesEmailExists, async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', signinValidation, async (req, res) => {
   const { email, password } = req.body;
   const user = await prisma.Users.findUnique({
     where: {
@@ -70,8 +74,8 @@ router.post('/login', async (req, res) => {
   } else {
     await res.clearCookie('Authorization');
     res.status(401).json({
-      error: 'Not a Valid Email and Password',
-    });
+      error: "Email or Password not Valid"
+  });
   }
 });
 
@@ -80,7 +84,10 @@ router.all('/logout', async (req, res) => {
   await redisClient.connect();
   await jwtr.destroy(token);
   await redisClient.disconnect();
-  res.json(req.cookies);
+  res.clearCookie("Authorization")
+  res.json({
+    isSuccess: true
+  });
 });
 
 router.get('/ping', async (req, res) => {
@@ -89,4 +96,4 @@ router.get('/ping', async (req, res) => {
 
 router.use(isPrivate, privateRouter);
 
-module.exports = { router, redisClient, jwtr };
+module.exports = { router };
