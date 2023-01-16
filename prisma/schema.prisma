@@ -10,20 +10,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id  String  @id @default(cuid())
-  password  String
-  email String  @unique
-  first_name  String
-  last_name String
-  playlist Playlist[]
+model Users {
+  id         String     @id @default(cuid())
+  password   String
+  email      String     @unique
+  first_name String
+  last_name  String
+  playlist   Playlist[]
 }
 
 model Playlist {
-  id  String  @id @default(cuid())
-  name String
+  id          String   @id @default(cuid())
+  name        String
   description String
-  songs String[]
-  creator String
-  user  User  @relation(fields:[creator], references: [id])
+  songs       String[]
+  creator     String
+  user        Users     @relation(fields: [creator], references: [id])
 }

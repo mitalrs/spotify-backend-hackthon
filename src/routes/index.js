@@ -1,35 +1,91 @@
 const express = require('express');
-const { default: isPrivate } = require('../middleware/checkPrivate');
-const {PrismaClient} = require('@prisma/client');
+const isPrivate = require('../middleware/checkPrivate');
+const { PrismaClient } = require('@prisma/client');
+const doesEmailExists = require('../middleware/checkEmailExists');
+var redis = require('redis');
+var JWTR = require('jwt-redis').default;
+var redisClient = redis.createClient();
+var jwtr = new JWTR(redisClient);
 const prisma = new PrismaClient();
 const router = express.Router();
+const secret = process.env.JWT_SECRET;
+const { router: privateRouter } = require('./privateRoutes');
 
-router.post('/signup', (req, res) => {
-  console.log(req.body);
-  res.send({ message: 'Signup Here!' });
-});
-
-router.post('/login', (req, res) => {
-  res.send({ message: 'Login Here!' });
-});
-
-router.get('/ping', async (req,res)=>{
-  try{
-    const user = await prisma.User.create({
+router.post('/signup', doesEmailExists, async (req, res) => {
+  const { first_name, last_name, email, password } = req.body;
+  try {
+    const user = await prisma.Users.create({
       data: {
-        first_name: "hello",
-        last_name: "world",
-        email: "email1.com",
-        password: "maakabharosa",
-      }
+        first_name,
+        last_name,
+        email,
+        password,
+      },
     });
-    const data = await prisma.User.findMany();
-    
-  res.json({user: data});
-  }
-  catch(e) {
-    console.log({e});
-  }
-})
+    const data = await prisma.Users.findUnique({
+      where: {
+        email,
+      },
+    });
 
-module.exports = router;
+    res.status(201).json({ user: data });
+  } catch (e) {
+    console.log({ e });
+    res.status(500).json({
+      error: 'maaf kijyega humari taraf se kuch takneeki kharabi aa gyi hai!',
+    });
+  }
+});
+
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  const user = await prisma.Users.findUnique({
+    where: {
+      email,
+    },
+  });
+  const payload = {
+    email: user.email,
+    id: user.id,
+    first_name: user.first_name,
+    last_name: user.last_name,
+  };
+
+  if (user.password === password) {
+    await redisClient.connect();
+    const token = await jwtr.sign(payload, secret).catch((e) => {
+      console.error(e);
+    });
+    await redisClient.disconnect();
+    res
+      .cookie('Authorization', token, {
+        maxAge: 360000,
+        httpOnly: true,
+        sameSite: 'lax',
+      })
+      .json({
+        isSuccess: true,
+      });
+  } else {
+    await res.clearCookie('Authorization');
+    res.status(401).json({
+      error: 'Not a Valid Email and Password',
+    });
+  }
+});
+
+router.all('/logout', async (req, res) => {
+  const token = req.cookies.Authorization;
+  await redisClient.connect();
+  await jwtr.destroy(token);
+  await redisClient.disconnect();
+  res.json(req.cookies);
+});
+
+router.get('/ping', async (req, res) => {
+  res.send('pong!');
+});
+
+router.use(isPrivate, privateRouter);
+
+module.exports = { router, redisClient, jwtr };

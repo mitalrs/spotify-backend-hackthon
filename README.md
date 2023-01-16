@@ -37,6 +37,7 @@ npm run test:watch
 ```
 
 ### Linting
+
 ```
 npm run lint
 
